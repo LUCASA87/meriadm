@@ -13,11 +13,19 @@
   <meta name="apple-mobile-web-app-title" content="Admin Meri">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Cormorant+Garamond:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/admin.css">
+  <script>
+    if (location.protocol === 'file:') {
+      document.documentElement.classList.add('file-protocol');
+    }
+  </script>
 </head>
 <body>
+  <noscript>
+    <p class="file-protocol-banner">Ative JavaScript para enviar fotos.</p>
+  </noscript>
   <header class="header">
     <div>
       <h1>Admin · Meri Decor</h1>
@@ -32,14 +40,21 @@
       <p id="format-hint" class="hint">Preparando conversor...</p>
 
       <label for="upload-tipo"><strong>Categoria padrão</strong> (para todos os arquivos deste lote)</label>
-      <select id="upload-tipo" aria-label="Categoria padrão do lote"></select>
+      <select id="upload-tipo" aria-label="Categoria padrão do lote">
+        <option value="aniversario">Aniversário</option>
+        <option value="bebe">Chá de Bebê</option>
+        <option value="casamento">Casamento</option>
+        <option value="infantil">Infantil</option>
+        <option value="corporativo">Corporativo</option>
+        <option value="outros" selected>Outros</option>
+      </select>
 
-      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Enviar imagens">
+      <input type="file" id="file-input" class="sr-only" accept="image/*" multiple>
+      <label class="dropzone" id="dropzone" for="file-input" tabindex="0" aria-label="Enviar imagens">
         <span class="dropzone-icon" aria-hidden="true">↑</span>
         <strong>Clique ou arraste várias imagens</strong>
         <span class="dropzone-note">JPG, PNG, WEBP… — convertidas automaticamente para ficar leve</span>
-      </div>
-      <input type="file" id="file-input" accept="image/*" multiple hidden>
+      </label>
 
       <div id="upload-progress" class="progress-wrap" hidden>
         <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
@@ -73,6 +88,42 @@
   </main>
 
   <script type="module" src="js/admin.js"></script>
+  <script>
+  (function () {
+    function showStartupBanner(html) {
+      if (document.getElementById('startup-banner')) return;
+      var banner = document.createElement('div');
+      banner.id = 'startup-banner';
+      banner.className = 'file-protocol-banner';
+      banner.innerHTML = html;
+      document.body.prepend(banner);
+    }
+
+    if (location.protocol === 'file:') {
+      window.addEventListener('DOMContentLoaded', function () {
+        showStartupBanner(
+          'O admin não funciona abrindo o arquivo direto no Explorer. ' +
+          'Feche esta aba, dê duplo clique em <strong>iniciar-admin.bat</strong> e use ' +
+          '<strong>http://127.0.0.1:3789/</strong>.'
+        );
+      });
+      return;
+    }
+
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var hint = document.getElementById('format-hint');
+        if (hint && hint.textContent.indexOf('Preparando') !== -1) {
+          showStartupBanner(
+            'O painel não carregou o JavaScript. Confirme que <strong>iniciar-admin.bat</strong> está aberto ' +
+            '(janela preta no PC) e acesse <strong>http://127.0.0.1:3789/</strong>. ' +
+            'Se instalou como app no celular, o PC precisa estar com o .bat rodando na mesma Wi‑Fi.'
+          );
+        }
+      }, 2500);
+    });
+  })();
+  </script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
