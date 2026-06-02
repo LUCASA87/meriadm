@@ -32,6 +32,9 @@
     if (location.protocol === 'file:') {
       document.documentElement.classList.add('file-protocol');
     }
+    if (/;\s*wv\)|android_asset/i.test(navigator.userAgent + location.href)) {
+      document.documentElement.classList.add('apk-webview');
+    }
   </script>
 </head>
 <body>
@@ -60,6 +63,11 @@
         <option value="corporativo">Corporativo</option>
         <option value="outros" selected>Outros</option>
       </select>
+
+      <label class="btn-upload" id="upload-btn-apk">
+        <input type="file" id="file-input-apk" accept="image/*" multiple>
+        Escolher fotos da galeria
+      </label>
 
       <label class="dropzone" id="dropzone" aria-label="Enviar imagens">
         <input type="file" id="file-input" class="file-input-overlay" accept="image/*" multiple>
@@ -100,14 +108,49 @@
   </main>
 
   <script>
-  window.__ADMIN_READY__ = false;
-  window.addEventListener('error', function (e) {
-    if (e.target && e.target.tagName === 'SCRIPT' && String(e.target.src || '').includes('admin.js')) {
-      window.__ADMIN_JS_ERROR__ = true;
+  (function () {
+    var base = window.__BASE__ || '/';
+    window.__ADMIN_READY__ = false;
+
+    function loadBundle() {
+      if (window.__ADMIN_BUNDLE_LOADED) return;
+      window.__ADMIN_BUNDLE_LOADED = true;
+      var s = document.createElement('script');
+      s.src = base + 'js/admin.bundle.js';
+      s.onerror = function () { window.__ADMIN_JS_ERROR__ = true; };
+      document.head.appendChild(s);
     }
-  }, true);
+
+    function isApkLike() {
+      return /;\s*wv\)/.test(navigator.userAgent)
+        || location.protocol === 'file:'
+        || /android_asset/i.test(location.href);
+    }
+
+    window.addEventListener('error', function (e) {
+      if (e.target && e.target.tagName === 'SCRIPT' && /admin\.(js|bundle\.js)/.test(String(e.target.src || ''))) {
+        window.__ADMIN_JS_ERROR__ = true;
+        if (String(e.target.src || '').includes('admin.js') && !String(e.target.src).includes('bundle')) {
+          loadBundle();
+        }
+      }
+    }, true);
+
+    if (isApkLike()) {
+      document.documentElement.classList.add('apk-webview');
+      loadBundle();
+    } else {
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = base + 'js/admin.js';
+      s.onerror = function () { loadBundle(); };
+      document.head.appendChild(s);
+      setTimeout(function () {
+        if (!window.__ADMIN_READY__) loadBundle();
+      }, 3000);
+    }
+  })();
   </script>
-  <script type="module" src="js/admin.js"></script>
   <script>
   (function () {
     function showStartupBanner(html) {
@@ -125,6 +168,15 @@
 
     function startupMessage() {
       var h = location.hostname;
+      var apk = /;\s*wv\)/.test(navigator.userAgent) || /android_asset/i.test(location.href);
+      if (apk) {
+        if (window.__ADMIN_JS_ERROR__) {
+          return 'Falta <code>js/admin.bundle.js</code> no APK. Rode <strong>gerar-apk.bat</strong>, ' +
+            'inclua a pasta <strong>AdminMeri inteira</strong> no gerador e gere o APK de novo.';
+        }
+        return 'O app não iniciou o JavaScript. Rode <strong>gerar-apk.bat</strong> antes de gerar o APK, ' +
+          'ou publique no GitHub Pages e configure o APK para abrir a URL <strong>HTTPS</strong> (não arquivo local).';
+      }
       if (location.protocol === 'file:') {
         return 'O admin não funciona abrindo o arquivo direto. Rode <strong>iniciar-admin.bat</strong> no PC ' +
           'ou publique no GitHub Pages com HTTPS.';
