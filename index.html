@@ -2,6 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (/\.[^/]+$/.test(path)) path = path.replace(/[^/]+$/, '');
+      else if (!path.endsWith('/')) path += '/';
+      if (!path) path = '/';
+      window.__BASE__ = path;
+      var base = document.createElement('base');
+      base.href = path;
+      document.head.appendChild(base);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>Admin · Meri Decor</title>
@@ -114,10 +126,16 @@
       setTimeout(function () {
         var hint = document.getElementById('format-hint');
         if (hint && hint.textContent.indexOf('Preparando') !== -1) {
+          var isLocal =
+            location.hostname === 'localhost' ||
+            location.hostname === '127.0.0.1';
           showStartupBanner(
-            'O painel não carregou o JavaScript. Confirme que <strong>iniciar-admin.bat</strong> está aberto ' +
-            '(janela preta no PC) e acesse <strong>http://127.0.0.1:3789/</strong>. ' +
-            'Se instalou como app no celular, o PC precisa estar com o .bat rodando na mesma Wi‑Fi.'
+            isLocal
+              ? 'O painel não carregou o JavaScript. Confirme que <strong>iniciar-admin.bat</strong> está aberto ' +
+                'e acesse <strong>http://127.0.0.1:3789/</strong>.'
+              : 'O painel não carregou o JavaScript. Abra o endereço com <strong>/</strong> no final ' +
+                '(ex.: <code>' + location.origin + window.__BASE__ + '</code>) e pressione ' +
+                '<strong>Ctrl+Shift+R</strong>. Veja erros em F12 → Console.'
           );
         }
       }, 2500);
@@ -128,7 +146,8 @@
   (function () {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {});
+      var base = window.__BASE__ || './';
+      navigator.serviceWorker.register(base + 'sw.js', { scope: base }).catch(function () {});
     });
 
     var deferredPrompt;
