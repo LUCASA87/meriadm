@@ -11,12 +11,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Admin Meri">
-  <!-- Caminhos ajustados com ./ para o GitHub Pages localizar corretamente -->
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="./icons/icon-512.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Cormorant+Garamond:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/admin.css">
+  <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
   <header class="header">
@@ -24,7 +23,6 @@
       <h1>Admin · Meri Decor</h1>
       <p class="header-sub">Galeria no Supabase · tabela <code>imagens</code></p>
     </div>
-    <!-- DICA: Substitua o href abaixo pela URL completa do seu site principal se ele estiver em outro repositório -->
     <a href="../Meri/index.html" target="_blank" rel="noopener" class="link-site">Ver site</a>
   </header>
 
@@ -74,13 +72,11 @@
     </section>
   </main>
 
-  <!-- Script principal ajustado para caminho relativo local -->
-  <script type="module" src="./js/admin.js"></script>
+  <script type="module" src="js/admin.js"></script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', function () {
-      // Ajustado o caminho do Service Worker para a raiz correta
       navigator.serviceWorker.register('./sw.js').catch(function () {});
     });
 
