@@ -61,10 +61,10 @@
         <option value="outros" selected>Outros</option>
       </select>
 
-      <input type="file" id="file-input" class="sr-only" accept="image/*" multiple>
-      <label class="dropzone" id="dropzone" for="file-input" tabindex="0" aria-label="Enviar imagens">
+      <label class="dropzone" id="dropzone" aria-label="Enviar imagens">
+        <input type="file" id="file-input" class="file-input-overlay" accept="image/*" multiple>
         <span class="dropzone-icon" aria-hidden="true">↑</span>
-        <strong>Clique ou arraste várias imagens</strong>
+        <strong>Toque para escolher fotos</strong>
         <span class="dropzone-note">JPG, PNG, WEBP… — convertidas automaticamente para ficar leve</span>
       </label>
 
@@ -99,6 +99,14 @@
     </section>
   </main>
 
+  <script>
+  window.__ADMIN_READY__ = false;
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'SCRIPT' && String(e.target.src || '').includes('admin.js')) {
+      window.__ADMIN_JS_ERROR__ = true;
+    }
+  }, true);
+  </script>
   <script type="module" src="js/admin.js"></script>
   <script>
   (function () {
@@ -111,40 +119,58 @@
       document.body.prepend(banner);
     }
 
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    function startupMessage() {
+      var h = location.hostname;
+      if (location.protocol === 'file:') {
+        return 'O admin não funciona abrindo o arquivo direto. Rode <strong>iniciar-admin.bat</strong> no PC ' +
+          'ou publique no GitHub Pages com HTTPS.';
+      }
+      if ((h === '127.0.0.1' || h === 'localhost') && isMobile()) {
+        return '<strong>No celular não use 127.0.0.1</strong> — esse endereço aponta para o próprio telefone. ' +
+          'No PC, abra o <strong>iniciar-admin.bat</strong> e use o IP que aparece na janela preta, ' +
+          'ex.: <strong>http://192.168.0.10:3789/</strong> (mesma Wi‑Fi).';
+      }
+      if (h === '127.0.0.1' || h === 'localhost') {
+        return 'JavaScript não carregou. Rode <strong>iniciar-admin.bat</strong> e acesse ' +
+          '<strong>http://127.0.0.1:3789/</strong>.';
+      }
+      if (/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(h)) {
+        return 'JavaScript não carregou pelo Wi‑Fi. Confirme que o <strong>iniciar-admin.bat</strong> está aberto no PC, ' +
+          'PC e celular na mesma rede, e permita a porta <strong>3789</strong> no firewall do Windows. ' +
+          'URL: <code>' + location.href + '</code>';
+      }
+      if (window.__ADMIN_JS_ERROR__) {
+        return 'Erro ao baixar <code>js/admin.js</code>. Confira se todos os arquivos foram enviados ao GitHub ' +
+          'e abra com <strong>/</strong> no final: <code>' + location.origin + window.__BASE__ + '</code>';
+      }
+      return 'JavaScript não carregou. Atualize a página (Ctrl+Shift+R). Se persistir, veja F12 → Console.';
+    }
+
     if (location.protocol === 'file:') {
       window.addEventListener('DOMContentLoaded', function () {
-        showStartupBanner(
-          'O admin não funciona abrindo o arquivo direto no Explorer. ' +
-          'Feche esta aba, dê duplo clique em <strong>iniciar-admin.bat</strong> e use ' +
-          '<strong>http://127.0.0.1:3789/</strong>.'
-        );
+        showStartupBanner(startupMessage());
       });
       return;
     }
 
     window.addEventListener('load', function () {
       setTimeout(function () {
-        var hint = document.getElementById('format-hint');
-        if (hint && hint.textContent.indexOf('Preparando') !== -1) {
-          var isLocal =
-            location.hostname === 'localhost' ||
-            location.hostname === '127.0.0.1';
-          showStartupBanner(
-            isLocal
-              ? 'O painel não carregou o JavaScript. Confirme que <strong>iniciar-admin.bat</strong> está aberto ' +
-                'e acesse <strong>http://127.0.0.1:3789/</strong>.'
-              : 'O painel não carregou o JavaScript. Abra o endereço com <strong>/</strong> no final ' +
-                '(ex.: <code>' + location.origin + window.__BASE__ + '</code>) e pressione ' +
-                '<strong>Ctrl+Shift+R</strong>. Veja erros em F12 → Console.'
-          );
-        }
-      }, 2500);
+        if (window.__ADMIN_READY__) return;
+        showStartupBanner(startupMessage());
+      }, 5000);
     });
   })();
   </script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
+    var h = location.hostname;
+    var useSw = location.protocol === 'https:' || h === 'localhost' || h === '127.0.0.1';
+    if (!useSw) return;
     window.addEventListener('load', function () {
       var base = window.__BASE__ || './';
       navigator.serviceWorker.register(base + 'sw.js', { scope: base }).catch(function () {});
