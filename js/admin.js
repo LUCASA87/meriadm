@@ -1,16 +1,23 @@
 import { EVENT_TYPE_IDS, ADMIN_THUMB_BATCH } from './config.js';
-import { fileToOptimizedDataUrl, supportsAvifEncode } from './image-avif.js';
+import { fileToOptimizedDataUrl } from './image-avif.js';
+import { isImageFile } from './image-compress.js';
 import {
-  fetchImagesMeta,
+  fetchGalleryList,
   fetchImagesByIds,
   fetchLogoRow,
   saveImage,
+  uploadImageFile,
   updateImageTipo,
   deleteImage,
   saveLogo,
   imageSrc,
+  imageDisplaySrc,
   eventLabel,
 } from './api.js';
+
+window.__ADMIN_READY__ = true;
+document.getElementById('format-hint') &&
+  (document.getElementById('format-hint').textContent = 'Carregando conversor…');
 
 let images = [];
 let logoId = null;
@@ -44,6 +51,13 @@ function setProgress(visible, text, pct) {
   if (bar) bar.style.width = `${Math.min(100, Math.max(0, pct ?? 0))}%`;
 }
 
+function thumbHtml(img) {
+  const src = imageDisplaySrc(imageSrc(img));
+  if (!src) return '<div class="img-placeholder" aria-hidden="true"></div>';
+  const safe = src.replace(/"/g, '&quot;');
+  return `<img src="${safe}" alt="Foto #${img.id}" loading="lazy">`;
+}
+
 function renderGallery() {
   const g = document.getElementById('admin-gallery');
   if (!g) return;
@@ -56,9 +70,10 @@ function renderGallery() {
   g.innerHTML = images
     .map((img) => {
       const tipo = img.tipo_evento || 'outros';
+      const hasThumb = !!imageSrc(img);
       return `
-        <article class="img-card" data-id="${img.id}">
-          <div class="img-thumb"><div class="img-placeholder" aria-hidden="true"></div></div>
+        <article class="img-card" data-id="${img.id}"${hasThumb ? ' data-loaded="1"' : ''}>
+          <div class="img-thumb">${thumbHtml(img)}</div>
           <div class="meta">
             <span class="img-id">#${img.id}</span>
             <label class="sr-only" for="tipo-${img.id}">Categoria</label>
@@ -101,6 +116,14 @@ function renderGallery() {
 
   setupThumbObserver();
   g.querySelectorAll('.img-card').forEach((card) => thumbObserver.observe(card));
+  preloadMissingThumbs();
+}
+
+function preloadMissingThumbs() {
+  images.forEach((img) => {
+    if (!imageSrc(img)) thumbQueue.add(String(img.id));
+  });
+  drainThumbQueue();
 }
 
 function setupThumbObserver() {
@@ -132,7 +155,8 @@ async function drainThumbQueue() {
       const src = imageSrc(row);
       const wrap = card.querySelector('.img-thumb');
       if (src && wrap) {
-        wrap.innerHTML = `<img src="${src.replace(/"/g, '&quot;')}" alt="Foto #${row.id}" loading="lazy">`;
+        const display = imageDisplaySrc(src);
+        wrap.innerHTML = `<img src="${display.replace(/"/g, '&quot;')}" alt="Foto #${row.id}" loading="lazy">`;
         card.dataset.loaded = '1';
       } else if (wrap) {
         wrap.innerHTML = '<div class="img-placeholder img-placeholder--err" title="Imagem pesada ou inválida"></div>';
@@ -175,7 +199,9 @@ async function saveTipoFromCard(id) {
 }
 
 async function loadImages() {
-  images = await fetchImagesMeta();
+  const g = document.getElementById('admin-gallery');
+  if (g) g.innerHTML = '<p class="empty">Carregando fotos...</p>';
+  images = await fetchGalleryList();
   const stat = document.getElementById('stat-count');
   if (stat) stat.textContent = images.length;
   renderGallery();
@@ -198,8 +224,21 @@ async function loadLogoSection() {
   }
 }
 
+function setUploadBusy(busy) {
+  bulkRunning = busy;
+  const zone = document.getElementById('upload-zone');
+  const input = document.getElementById('file-input');
+  const label = document.getElementById('btn-pick-photos');
+  if (zone) zone.classList.toggle('busy', busy);
+  if (input) input.disabled = busy;
+  if (label) {
+    if (busy) label.setAttribute('aria-disabled', 'true');
+    else label.removeAttribute('aria-disabled');
+  }
+}
+
 async function processFiles(fileList) {
-  const files = [...fileList].filter((f) => f.type.startsWith('image/'));
+  const files = [...fileList].filter(isImageFile);
   if (!files.length) {
     toast('Nenhuma imagem válida selecionada', true);
     return;
@@ -210,70 +249,94 @@ async function processFiles(fileList) {
   }
 
   const tipo = document.getElementById('upload-tipo')?.value || 'outros';
-  bulkRunning = true;
-  const dropzone = document.getElementById('dropzone');
-  if (dropzone) dropzone.classList.add('busy');
+  setUploadBusy(true);
 
   let ok = 0;
   let fail = 0;
+  let lastErr = '';
   const total = files.length;
 
-  for (let i = 0; i < total; i++) {
-    const file = files[i];
-    const pct = Math.round(((i + 0.15) / total) * 100);
-    setProgress(true, `Convertendo ${i + 1}/${total}: ${file.name}`, pct);
+  try {
+    for (let i = 0; i < total; i++) {
+      const file = files[i];
+      const pct = Math.round(((i + 0.15) / total) * 100);
+      setProgress(true, `Enviando ${i + 1}/${total}: ${file.name || 'foto'}`, pct);
 
-    try {
-      const { dataUrl, mime, kb, useAvif } = await fileToOptimizedDataUrl(file);
-      setProgress(true, `Enviando ${i + 1}/${total} (~${kb} KB ${useAvif ? 'AVIF' : 'WebP'})`, pct + 5);
-      await saveImage(dataUrl, tipo);
-      ok++;
-    } catch (e) {
-      fail++;
-      console.error(file.name, e);
+      try {
+        await uploadImageFile(file, tipo);
+        ok++;
+      } catch (storageErr) {
+        try {
+          setProgress(true, `Convertendo ${i + 1}/${total}…`, pct);
+          const { dataUrl } = await fileToOptimizedDataUrl(file);
+          await saveImage(dataUrl, tipo);
+          ok++;
+        } catch (e) {
+          fail++;
+          lastErr = e.message || storageErr.message;
+          console.error(file.name, e);
+        }
+      }
+
+      setProgress(true, `Concluído ${i + 1}/${total}`, Math.round(((i + 1) / total) * 100));
     }
 
-    setProgress(true, `Concluído ${i + 1}/${total}`, Math.round(((i + 1) / total) * 100));
+    await loadImages();
+    if (ok) toast(`${ok} foto(s) enviada(s).`);
+    if (fail) toast(`${fail} falhou(aram): ${lastErr}`, true);
+  } finally {
+    setUploadBusy(false);
+    setProgress(false);
   }
-
-  bulkRunning = false;
-  if (dropzone) dropzone.classList.remove('busy');
-  setProgress(false);
-
-  await loadImages();
-  const fmt = await supportsAvifEncode();
-  if (!fmt && ok) toast(`${ok} enviada(s). Navegador sem AVIF — usamos WebP (ainda leve).`);
-  else if (ok) toast(`${ok} imagem(ns) enviada(s) em ${fmt ? 'AVIF' : 'WebP'}.`);
-  if (fail) toast(`${fail} falhou(aram). Veja o console.`, true);
 }
 
-function bindDropzone() {
-  const dropzone = document.getElementById('dropzone');
+function onFilesSelected(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+  if (!window.__ADMIN_READY__) {
+    alert('O painel ainda está carregando. Espere 2 segundos e tente de novo.');
+    return;
+  }
+  toast(`${files.length} foto(s) selecionada(s)…`);
+  processFiles(files).catch((err) => toast(err.message, true));
+}
+
+function bindFileInput(input) {
+  if (!input) return;
+  const handler = () => {
+    const files = input.files;
+    if (!files?.length) return;
+    onFilesSelected(files);
+    input.value = '';
+  };
+  input.addEventListener('change', handler);
+  input.addEventListener('input', handler);
+}
+
+function bindUpload() {
+  const zone = document.getElementById('upload-zone');
   const input = document.getElementById('file-input');
-  if (!dropzone || !input) return;
+  if (!input) return;
 
-  dropzone.addEventListener('click', () => {
-    if (!bulkRunning) input.click();
-  });
+  bindFileInput(input);
 
-  input.addEventListener('change', (e) => {
-    if (e.target.files?.length) processFiles(e.target.files);
-    e.target.value = '';
-  });
+  if (!zone) return;
 
   ['dragenter', 'dragover'].forEach((ev) => {
-    dropzone.addEventListener(ev, (e) => {
+    zone.addEventListener(ev, (e) => {
       e.preventDefault();
-      dropzone.classList.add('dragover');
+      zone.classList.add('dragover');
     });
   });
 
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
 
-  dropzone.addEventListener('drop', (e) => {
+  zone.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer?.files?.length) processFiles(e.dataTransfer.files);
+    zone.classList.remove('dragover');
+    if (e.dataTransfer?.files?.length) {
+      processFiles(e.dataTransfer.files).catch((err) => toast(err.message, true));
+    }
   });
 }
 
@@ -311,16 +374,22 @@ document.getElementById('logo-file')?.addEventListener('change', async (e) => {
 async function initFormatHint() {
   const hint = document.getElementById('format-hint');
   if (!hint) return;
-  const avif = await supportsAvifEncode();
-  hint.textContent = avif
-    ? 'Arquivos são convertidos para AVIF antes de salvar no Supabase (tabela imagens).'
-    : 'Seu navegador não gera AVIF; usamos WebP comprimido (ainda mais leve que JPEG original).';
+  hint.textContent =
+    'Fotos vão para o Supabase Storage (leve). Fotos antigas em base64 carregam aos poucos.';
 }
 
 const sel = document.getElementById('upload-tipo');
-if (sel) sel.innerHTML = eventOptionsHtml('outros');
+if (sel && !sel.options.length) sel.innerHTML = eventOptionsHtml('outros');
 
-bindDropzone();
-initFormatHint();
-loadImages().catch((e) => toast('Erro ao carregar: ' + e.message, true));
-loadLogoSection();
+function boot() {
+  bindUpload();
+  initFormatHint();
+  loadImages().catch((e) => toast('Erro ao carregar: ' + e.message, true));
+  loadLogoSection();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
