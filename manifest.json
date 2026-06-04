@@ -1,0 +1,21 @@
+{
+  "name": "Meri Decor Admin",
+  "short_name": "Admin Meri",
+  "description": "Painel para enviar fotos e categorias da galeria Meri Decor",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef7f3",
+  "theme_color": "#9a7830",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}
