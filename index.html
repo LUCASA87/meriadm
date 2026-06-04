@@ -39,7 +39,7 @@
 </head>
 <body>
   <noscript>
-    <p class="file-protocol-banner">Ative JavaScript para enviar fotos.</p>
+    <p class="noscript-banner">Ative JavaScript para enviar fotos.</p>
   </noscript>
   <header class="header">
     <div>
@@ -149,72 +149,6 @@
         if (!window.__ADMIN_READY__) loadBundle();
       }, 3000);
     }
-  })();
-  </script>
-  <script>
-  (function () {
-    function showStartupBanner(html) {
-      if (document.getElementById('startup-banner')) return;
-      var banner = document.createElement('div');
-      banner.id = 'startup-banner';
-      banner.className = 'file-protocol-banner';
-      banner.innerHTML = html;
-      document.body.prepend(banner);
-    }
-
-    function isMobile() {
-      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    }
-
-    function startupMessage() {
-      var h = location.hostname;
-      var apk = /;\s*wv\)/.test(navigator.userAgent) || /android_asset/i.test(location.href);
-      if (apk) {
-        if (window.__ADMIN_JS_ERROR__) {
-          return 'Falta <code>js/admin.bundle.js</code> no APK. Rode <strong>gerar-apk.bat</strong>, ' +
-            'inclua a pasta <strong>AdminMeri inteira</strong> no gerador e gere o APK de novo.';
-        }
-        return 'O app não iniciou o JavaScript. Rode <strong>gerar-apk.bat</strong> antes de gerar o APK, ' +
-          'ou publique no GitHub Pages e configure o APK para abrir a URL <strong>HTTPS</strong> (não arquivo local).';
-      }
-      if (location.protocol === 'file:') {
-        return 'O admin não funciona abrindo o arquivo direto. Rode <strong>iniciar-admin.bat</strong> no PC ' +
-          'ou publique no GitHub Pages com HTTPS.';
-      }
-      if ((h === '127.0.0.1' || h === 'localhost') && isMobile()) {
-        return '<strong>No celular não use 127.0.0.1</strong> — esse endereço aponta para o próprio telefone. ' +
-          'No PC, abra o <strong>iniciar-admin.bat</strong> e use o IP que aparece na janela preta, ' +
-          'ex.: <strong>http://192.168.0.10:3789/</strong> (mesma Wi‑Fi).';
-      }
-      if (h === '127.0.0.1' || h === 'localhost') {
-        return 'JavaScript não carregou. Rode <strong>iniciar-admin.bat</strong> e acesse ' +
-          '<strong>http://127.0.0.1:3789/</strong>.';
-      }
-      if (/^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(h)) {
-        return 'JavaScript não carregou pelo Wi‑Fi. Confirme que o <strong>iniciar-admin.bat</strong> está aberto no PC, ' +
-          'PC e celular na mesma rede, e permita a porta <strong>3789</strong> no firewall do Windows. ' +
-          'URL: <code>' + location.href + '</code>';
-      }
-      if (window.__ADMIN_JS_ERROR__) {
-        return 'Erro ao baixar <code>js/admin.js</code>. Confira se todos os arquivos foram enviados ao GitHub ' +
-          'e abra com <strong>/</strong> no final: <code>' + location.origin + window.__BASE__ + '</code>';
-      }
-      return 'JavaScript não carregou. Atualize a página (Ctrl+Shift+R). Se persistir, veja F12 → Console.';
-    }
-
-    if (location.protocol === 'file:') {
-      window.addEventListener('DOMContentLoaded', function () {
-        showStartupBanner(startupMessage());
-      });
-      return;
-    }
-
-    window.addEventListener('load', function () {
-      setTimeout(function () {
-        if (window.__ADMIN_READY__) return;
-        showStartupBanner(startupMessage());
-      }, 5000);
-    });
   })();
   </script>
   <script>
